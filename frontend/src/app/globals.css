@@ -1,0 +1,345 @@
+@import "tailwindcss";
+
+:root {
+  /* Base colors */
+  --background: #ffffff;
+  --foreground: #171717;
+  
+  /* Citrea Colors */
+  --citrea-orange: #FF5C00; /* Vibrant orange from Citrea logo */
+  --citrea-yellow: #FFD600; /* Yellow from Citrea gradient */
+  --citrea-teal: #00FFCC;   /* Teal from Citrea gradient */
+  --citrea-green: #4ADE80;  /* Green accent */
+  --citrea-50: #f0f7ff;
+  --citrea-100: #e0f1ff;
+  --citrea-200: #c7e3ff;
+  --citrea-300: #a4d1ff;
+  --citrea-400: #75b8ff;
+  --citrea-500: #000000;    /* Citrea uses black text on white background */
+  --citrea-600: #000000;
+  --citrea-700: #000000;
+  --citrea-800: #000000;
+  --citrea-900: #000000;
+  --citrea-950: #000000;
+  
+  /* KRNL Colors */
+  --krnl-50: #f0f7ff;
+  --krnl-100: #e0eefe;
+  --krnl-200: #b9dafd;
+  --krnl-300: #7db9fb;
+  --krnl-400: #4896f7;
+  --krnl-500: #0052FF; /* Primary KRNL blue */
+  --krnl-600: #0045DB;
+  --krnl-700: #0039B7;
+  --krnl-800: #002C93;
+  --krnl-900: #001F6F;
+  --krnl-950: #00134B;
+  
+  /* Bitcoin Gold */
+  --bitcoin-500: #f59e0b; /* Bitcoin gold */
+  
+  /* Functional Colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  
+  /* UI Gradients */
+  --gradient-citrea: linear-gradient(135deg, var(--citrea-orange) 0%, var(--citrea-yellow) 50%, var(--citrea-teal) 100%);
+  --gradient-citrea-krnl: linear-gradient(135deg, var(--citrea-orange) 0%, var(--krnl-500) 100%);
+  --gradient-krnl: linear-gradient(135deg, var(--krnl-600) 0%, var(--krnl-400) 100%);
+  
+  /* Vegas Casino Colors */
+  --vegas-red: #ff003c;
+  --vegas-blue: #00a1ff;
+  --vegas-purple: #9d00ff;
+  --vegas-green: #00ff66;
+  --vegas-pink: #ff00a1;
+  --vegas-yellow: #ffea00;
+  --vegas-orange: #ff7700;
+  
+  /* Vegas Neon Glow Colors */
+  --neon-red-glow: 0 0 5px #ff003c, 0 0 10px #ff003c, 0 0 20px #ff003c, 0 0 40px #ff003c;
+  --neon-blue-glow: 0 0 5px #00a1ff, 0 0 10px #00a1ff, 0 0 20px #00a1ff, 0 0 40px #00a1ff;
+  --neon-purple-glow: 0 0 5px #9d00ff, 0 0 10px #9d00ff, 0 0 20px #9d00ff, 0 0 40px #9d00ff;
+  --neon-green-glow: 0 0 5px #00ff66, 0 0 10px #00ff66, 0 0 20px #00ff66, 0 0 40px #00ff66;
+  --neon-pink-glow: 0 0 5px #ff00a1, 0 0 10px #ff00a1, 0 0 20px #ff00a1, 0 0 40px #ff00a1;
+  --neon-yellow-glow: 0 0 5px #ffea00, 0 0 10px #ffea00, 0 0 20px #ffea00, 0 0 40px #ffea00;
+  --neon-orange-glow: 0 0 5px #ff7700, 0 0 10px #ff7700, 0 0 20px #ff7700, 0 0 40px #ff7700;
+  
+  /* Component-specific variables */
+  --button-primary-bg: var(--citrea-600);
+  --button-primary-hover: var(--citrea-700);
+  --button-primary-text: white;
+  --button-secondary-bg: white;
+  --button-secondary-hover: var(--citrea-50);
+  --button-secondary-text: var(--citrea-600);
+  --button-secondary-border: var(--citrea-200);
+  --card-bg: #ffffff;
+  --card-border: #e5e7eb;
+  --input-bg: #f9fafb;
+  --input-border: #d1d5db;
+  --input-focus-border: var(--citrea-500);
+}
+
+/* Slot Machine Animation Keyframes */
+@keyframes reel-spin {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-1000px); }
+}
+
+@keyframes reel-stop {
+  0% { transform: translateY(0); }
+  10% { transform: translateY(-5px); }
+  20% { transform: translateY(5px); }
+  30% { transform: translateY(-3px); }
+  40% { transform: translateY(3px); }
+  50% { transform: translateY(-2px); }
+  60% { transform: translateY(2px); }
+  70% { transform: translateY(-1px); }
+  80% { transform: translateY(1px); }
+  90% { transform: translateY(-0.5px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes win-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes jackpot-lights {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes coin-burst {
+  0% { transform: scale(0) translate(0, 0); opacity: 1; }
+  100% { transform: scale(1) translate(var(--random-x), var(--random-y)); opacity: 0; }
+}
+
+@keyframes button-press {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes lever-pull {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(60deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes marquee-bulb {
+  0%, 100% { opacity: 1; box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8); }
+  50% { opacity: 0.5; box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.4); }
+}
+
+@keyframes sequential-lights {
+  0%, 100% { opacity: 1; }
+  16% { opacity: 0.4; }
+  33% { opacity: 0.6; }
+  50% { opacity: 0.4; }
+  66% { opacity: 0.6; }
+  83% { opacity: 0.4; }
+}
+
+@keyframes button-glow {
+  0%, 100% { box-shadow: 0 0 5px 2px rgba(255, 215, 0, 0.5); }
+  50% { box-shadow: 0 0 15px 5px rgba(255, 215, 0, 0.8); }
+}
+
+/* Slot Machine CSS Classes */
+.slot-cabinet {
+  position: relative;
+  background: linear-gradient(135deg, #2b2b2b 0%, #1a1a1a 100%);
+  border-radius: 12px;
+  border: 8px solid #d4af37; /* Gold trim */
+  box-shadow: 
+    0 0 0 2px #1a1a1a,
+    0 10px 20px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  padding: 20px;
+}
+
+.slot-cabinet::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(90deg, #d4af37, #f5e28a, #d4af37);
+  border-bottom: 2px solid #1a1a1a;
+}
+
+.slot-cabinet::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(90deg, #d4af37, #f5e28a, #d4af37);
+  border-top: 2px solid #1a1a1a;
+}
+
+.slot-display {
+  background: linear-gradient(135deg, #333333, #111111);
+  border: 5px solid #8b7500;
+  border-radius: 10px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7), inset 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Improved Button Style */
+.slot-button {
+  background: linear-gradient(to bottom, #e6c200, #b39700);
+  color: #000;
+  font-weight: bold;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+  border: 2px solid #996600;
+  border-radius: 8px;
+  padding: 10px 20px;
+  box-shadow: 0 4px 0 #996600, 0 5px 5px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  position: relative;
+  overflow: hidden;
+  animation: button-glow 2s infinite;
+}
+
+.slot-button:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #996600, 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.slot-button:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: all 0.5s ease;
+}
+
+.slot-button:hover:before {
+  left: 100%;
+}
+
+.cabinet-light {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffcc00;
+  box-shadow: 0 0 10px #ffcc00;
+  animation: cabinet-light 1s infinite alternate;
+}
+
+.win-flash {
+  animation: win-flash 0.5s infinite;
+}
+
+.jackpot-lights {
+  background: linear-gradient(90deg, #ff0000, #ff7700, #ffcc00, #00ff00, #0099ff, #6600ff, #ff00cc, #ff0000);
+  background-size: 800% 800%;
+  animation: jackpot-lights 5s ease infinite;
+}
+
+.coin {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: radial-gradient(circle at center, #f5e28a, #d4af37);
+  border-radius: 50%;
+  animation: coin-burst 1s forwards;
+}
+
+/* Theme variables */
+:root {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    
+    /* Component-specific variables for dark mode */
+    --card-bg: #1f2937;
+    --card-border: #374151;
+    --input-bg: #111827;
+    --input-border: #4b5563;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom utility classes */
+.citrea-gradient-text {
+  background: var(--gradient-citrea);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.krnl-gradient-text {
+  background: var(--gradient-krnl);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.citrea-krnl-gradient-text {
+  background: var(--gradient-citrea-krnl);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Custom component styles */
+.citrea-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.citrea-input {
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  transition: border-color 0.15s ease-in-out;
+}
+
+.citrea-input:focus {
+  outline: none;
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 3px rgba(12, 164, 242, 0.15);
+}
+
+.krnl-input {
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  transition: border-color 0.15s ease-in-out;
+}
+
+.krnl-input:focus {
+  outline: none;
+  border-color: var(--krnl-500);
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15);
+}

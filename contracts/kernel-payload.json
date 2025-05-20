@@ -1,0 +1,8 @@
+{
+  "senderAddress": "{{senderAddress}}",
+  "kernelPayload": {
+    "1557": {
+      "functionParams": "{{abiEncoded(uint256)}}"
+    }
+  }
+}
