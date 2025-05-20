@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Home() {
   const router = useRouter();
@@ -9,6 +10,8 @@ export default function Home() {
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState('');
+  const [leverPulled, setLeverPulled] = useState(false);
+  const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
 
   // Connect wallet
   const connectWallet = async () => {
@@ -31,9 +34,34 @@ export default function Home() {
 
   // Enter casino
   const enterCasino = () => {
-    if (walletConnected && disclaimerAccepted) {
-      router.push('/stake');
+    if (walletConnected) {
+      if (disclaimerAccepted) {
+        // Pull the lever animation
+        setLeverPulled(true);
+        
+        // Delay navigation to show the lever animation
+        setTimeout(() => {
+          router.push('/slot-machine');
+        }, 1000);
+      } else {
+        // Show disclaimer modal
+        setShowDisclaimerModal(true);
+      }
     }
+  };
+  
+  // Accept disclaimer and proceed
+  const acceptDisclaimer = () => {
+    setDisclaimerAccepted(true);
+    setShowDisclaimerModal(false);
+    
+    // Pull the lever animation
+    setLeverPulled(true);
+    
+    // Delay navigation to show the lever animation
+    setTimeout(() => {
+      router.push('/slot-machine');
+    }, 1000);
   };
 
   return (
@@ -74,12 +102,63 @@ export default function Home() {
       </div>
       
       <div className="relative z-10 max-w-2xl w-full">
-        {/* Hero Section */}
-        <div className="bg-gradient-to-r from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden mb-8 border border-gray-600">
-          <div className="bg-gradient-to-r from-yellow-600 to-yellow-400 h-2"></div>
-          <div className="p-8 text-center">
-            <h1 className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 mb-4">🎰 CITREA CASINO 🎰</h1>
-            <p className="text-gray-300 mb-6">Experience the future of blockchain gambling</p>
+        {/* Casino Machine with Side Lever */}
+        <div className="relative flex items-center">
+          {/* Side Lever */}
+          <div className="relative mr-4 hidden md:block">
+            <div className="w-8 h-64 bg-gradient-to-b from-gray-700 to-gray-900 rounded-t-full rounded-b-full flex flex-col items-center justify-between p-2">
+              <div className="w-6 h-6 rounded-full bg-red-600 border-2 border-red-800"></div>
+              <div 
+                className={`slot-lever w-6 h-24 bg-gradient-to-b from-gray-400 to-gray-600 rounded-full relative transition-transform duration-300 ${leverPulled ? 'transform translate-y-12' : ''}`}
+                style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
+              >
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-red-500 border-2 border-red-700"></div>
+                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-10 h-10 rounded-full bg-gradient-to-b from-red-500 to-red-700 border-2 border-red-800 flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full bg-red-600 border border-red-800"></div>
+                </div>
+              </div>
+              <div className="w-full h-4 bg-gradient-to-b from-gray-600 to-gray-800 rounded-full"></div>
+            </div>
+            <div 
+              className="w-4 h-32 bg-gradient-to-b from-gray-800 to-gray-900 absolute -right-2 top-1/2 transform -translate-y-1/2 rounded-r-lg"
+              style={{ boxShadow: '2px 0 5px rgba(0,0,0,0.3)' }}
+            ></div>
+          </div>
+          
+          {/* Slot Machine Frame */}
+          <div 
+            className="relative bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 p-8 max-w-2xl w-full mx-auto"
+            style={{
+              boxShadow: '0 0 0 4px #1a1a1a, 0 0 0 8px #d4af37, 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(212, 175, 55, 0.3)',
+              minHeight: '680px'
+            }}>
+            {/* Casino Name Display */}
+            <div className="bg-black rounded-lg p-4 mb-6 border-4 border-red-600">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-500">CITREA SLOTS</div>
+                <div className="text-sm text-yellow-400">POWERED BY KRNL</div>
+              </div>
+            </div>
+            
+            {/* Welcome Display - Mimics Balance and Win Display */}
+            <div className="grid grid-cols-1 gap-4 mb-6">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-4 border-2 border-blue-400">
+                <div className="text-center">
+                  <div className="text-sm text-blue-200">WELCOME</div>
+                  <div className="text-2xl font-bold text-white">BLOCKCHAIN CASINO</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Slot Preview - Mimics Reels */}
+            <div className="bg-black rounded-xl p-6 mb-6 border-4 border-gray-600 relative overflow-hidden">
+              <div className="flex flex-col items-center justify-center h-32">
+                <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500">🎰 WELCOME 🎰</div>
+                <p className="text-white mt-2">Experience the future of blockchain gambling</p>
+              </div>
+            </div>
+            
+            <div className="text-center">
             
             <div className="flex justify-center space-x-6 mb-8">
               <div className="text-center">
@@ -119,6 +198,22 @@ export default function Home() {
                     ? '0 5px 15px rgba(0,0,0,0.3)' 
                     : '0 10px 25px rgba(0,0,0,0.3), 0 0 30px rgba(239, 68, 68, 0.3)'
                 }}
+                onMouseDown={() => {
+                  if (!connecting) {
+                    // Pull the lever when clicking connect
+                    const leverElements = document.querySelectorAll('.slot-lever');
+                    leverElements.forEach(el => {
+                      (el as HTMLElement).style.transform = 'translateY(50px)';
+                    });
+                    
+                    // Return lever to original position after a delay
+                    setTimeout(() => {
+                      leverElements.forEach(el => {
+                        (el as HTMLElement).style.transform = 'translateY(0)';
+                      });
+                    }, 1000);
+                  }
+                }}
               >
                 {/* Button shine effect */}
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 -skew-x-12 transform translate-x-full group-hover:translate-x-[-200%] transition-transform duration-1000"></div>
@@ -133,61 +228,107 @@ export default function Home() {
                 )}
               </button>
             ) : (
-              <div className="bg-gradient-to-r from-green-600/30 to-green-800/30 backdrop-blur-sm rounded-lg p-4 mb-6 border border-green-500">
-                <div className="flex items-center justify-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                  <p className="text-green-400 font-medium">Wallet Connected!</p>
+              <div className="space-y-6">
+                <div className="bg-gradient-to-r from-green-600/30 to-green-800/30 backdrop-blur-sm rounded-lg p-4 mb-6 border border-green-500">
+                  <div className="flex items-center justify-center">
+                    <div className="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                    <p className="text-green-400 font-medium">Wallet Connected!</p>
+                  </div>
                 </div>
+                
+                {/* Enter Casino Button */}
+                <button
+                  onClick={enterCasino}
+                  className="relative overflow-hidden w-full bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white font-bold py-4 px-6 rounded-full border-4 border-yellow-400 shadow-lg transition-all transform hover:scale-105 hover:shadow-xl"
+                  style={{
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.3), 0 0 30px rgba(239, 68, 68, 0.3)'
+                  }}
+                  onMouseDown={() => {
+                    // Pull the lever when clicking enter
+                    const leverElements = document.querySelectorAll('.slot-lever');
+                    leverElements.forEach(el => {
+                      (el as HTMLElement).style.transform = 'translateY(50px)';
+                    });
+                  }}
+                >
+                  {/* Button shine effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 -skew-x-12 transform translate-x-full group-hover:translate-x-[-200%] transition-transform duration-1000"></div>
+                  
+                  <span className="relative z-10 text-xl">
+                    🎰 Enter Casino 🎰
+                  </span>
+                  
+                  {/* Pulsing glow */}
+                  <div className="absolute inset-0 rounded-full bg-red-400 opacity-20 animate-ping"></div>
+                </button>
               </div>
             )}
+            </div>
           </div>
         </div>
         
-        {/* Disclaimer Section */}
-        {walletConnected && (
-          <div className="bg-gradient-to-r from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden mb-8 border border-gray-600">
-            <div className="p-6">
-              <h3 className="text-xl font-bold text-yellow-400 mb-4">Gambling Disclaimer</h3>
-              <p className="text-gray-300 text-sm mb-6">This is a blockchain gambling application. You must be of legal age to gamble in your jurisdiction. Gambling involves risk and should be considered entertainment only. Never gamble with funds you cannot afford to lose.</p>
-              
-              <div className="flex items-center mb-6">
-                <input 
-                  type="checkbox" 
-                  id="disclaimer" 
-                  checked={disclaimerAccepted}
-                  onChange={() => setDisclaimerAccepted(!disclaimerAccepted)}
-                  className="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-700 rounded bg-gray-800"
-                />
-                <label htmlFor="disclaimer" className="ml-2 text-sm text-gray-300 cursor-pointer">
-                  I understand and accept the risks
-                </label>
-              </div>
-              
-              <button
-                onClick={enterCasino}
-                disabled={!disclaimerAccepted}
-                className={`relative overflow-hidden w-full bg-gradient-to-b from-yellow-500 to-yellow-700 hover:from-yellow-400 hover:to-yellow-600 text-black font-bold py-4 px-6 rounded-full border-4 border-yellow-300 shadow-lg transition-all transform ${!disclaimerAccepted ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 hover:shadow-xl'}`}
+        {/* Disclaimer Modal */}
+        <AnimatePresence>
+          {showDisclaimerModal && (
+            <motion.div 
+              className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div 
+                className="bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 overflow-hidden max-w-lg w-full"
                 style={{
-                  boxShadow: !disclaimerAccepted 
-                    ? '0 5px 15px rgba(0,0,0,0.3)' 
-                    : '0 10px 25px rgba(0,0,0,0.3), 0 0 30px rgba(234, 179, 8, 0.3)'
+                  boxShadow: '0 0 0 4px #1a1a1a, 0 0 0 8px #d4af37, 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(212, 175, 55, 0.3)',
+                  minHeight: '400px'
                 }}
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
               >
-                {/* Button shine effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 -skew-x-12 transform translate-x-full group-hover:translate-x-[-200%] transition-transform duration-1000"></div>
+                <div className="bg-black rounded-lg p-4 mb-2 border-4 border-red-600 mx-4 mt-4">
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-red-500">DISCLAIMER</div>
+                  </div>
+                </div>
                 
-                <span className="relative z-10 text-xl">
-                  🎰 Enter Casino 🎰
-                </span>
-                
-                {/* Pulsing glow when disclaimer accepted */}
-                {disclaimerAccepted && (
-                  <div className="absolute inset-0 rounded-full bg-yellow-400 opacity-20 animate-ping"></div>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
+                <div className="p-6">
+                  <p className="text-white text-sm mb-6">This is a blockchain gambling application. You must be of legal age to gamble in your jurisdiction. Gambling involves risk and should be considered entertainment only. Never gamble with funds you cannot afford to lose.</p>
+                  
+                  <div className="flex items-center mb-6">
+                    <input 
+                      type="checkbox" 
+                      id="disclaimer" 
+                      checked={disclaimerAccepted}
+                      onChange={() => setDisclaimerAccepted(!disclaimerAccepted)}
+                      className="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-700 rounded bg-gray-800"
+                    />
+                    <label htmlFor="disclaimer" className="ml-2 text-sm text-white cursor-pointer">
+                      I understand and accept the risks
+                    </label>
+                  </div>
+                  
+                  <div className="flex space-x-4">
+                    <button
+                      onClick={() => setShowDisclaimerModal(false)}
+                      className="relative overflow-hidden flex-1 bg-gradient-to-b from-gray-500 to-gray-700 hover:from-gray-400 hover:to-gray-600 text-white font-bold py-3 px-4 rounded-full border-4 border-gray-400 shadow-lg transition-all transform hover:scale-105"
+                    >
+                      Cancel
+                    </button>
+                    
+                    <button
+                      onClick={acceptDisclaimer}
+                      disabled={!disclaimerAccepted}
+                      className={`relative overflow-hidden flex-1 bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white font-bold py-3 px-4 rounded-full border-4 border-yellow-400 shadow-lg transition-all transform ${!disclaimerAccepted ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 hover:shadow-xl'}`}
+                    >
+                      Accept & Play
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* Error Message */}
         {error && (
@@ -195,12 +336,6 @@ export default function Home() {
             <p className="text-red-400 font-medium text-center">{error}</p>
           </div>
         )}
-        
-        {/* Footer */}
-        <div className="text-center text-gray-400 text-sm mt-8">
-          <p>© 2025 Citrea Casino. All rights reserved.</p>
-          <p className="mt-1">🎲 Play Responsibly • 21+ Only • Ethereum Blockchain Gambling 🎲</p>
-        </div>
         
         {/* Custom styles for animations */}
         <style jsx>{`

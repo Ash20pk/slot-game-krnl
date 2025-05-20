@@ -56,17 +56,24 @@ export default function SlotMachinePage() {
         <div className="absolute top-1/2 left-1/2 w-[32rem] h-[32rem] bg-gradient-radial from-yellow-500/8 via-yellow-500/3 to-transparent rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
       </div>
       
-      {/* Minimal subtle particles */}
+      {/* Casino-themed particles */}
       <div className="absolute inset-0">
-        {[...Array(8)].map((_, i) => (
+        {[...Array(12)].map((_, i) => (
           <div 
             key={i}
-            className="absolute w-1 h-1 bg-white/30 rounded-full animate-pulse"
+            className="absolute rounded-full"
             style={{
-              left: `${20 + Math.random() * 60}%`,
-              top: `${20 + Math.random() * 60}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${3 + Math.random() * 2}s`
+              width: `${Math.random() * 10 + 5}px`,
+              height: `${Math.random() * 10 + 5}px`,
+              background: i % 3 === 0 ? 'radial-gradient(circle at center, #ffd700, #ffed4e)' : 
+                         i % 3 === 1 ? 'radial-gradient(circle at center, #ff5e5e, #ff8f8f)' : 
+                         'radial-gradient(circle at center, #5eafff, #8fcfff)',
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
+              opacity: 0.6,
+              animation: `float ${3 + Math.random() * 5}s ease-in-out infinite`,
+              animationDelay: `${Math.random() * 5}s`
             }}
           />
         ))}
@@ -79,27 +86,46 @@ export default function SlotMachinePage() {
         <main>
           
           {/* Slot Machine */}
-          <div className="rounded-xl overflow-hidden mb-8">
+          <div className="mb-8">
             <SlotMachineWithNoSSR />
           </div>
           
           {/* Game Info */}
-          <div className="bg-gradient-to-r from-gray-800/80 to-gray-900/80 backdrop-blur-sm rounded-xl p-6 mb-6 border border-gray-600">
-            <h3 className="text-xl font-bold text-white mb-4">How to Play</h3>
-            <div className="space-y-2 text-gray-300">
-              <p>1. Connect your wallet and ensure you have ETH staked</p>
-              <p>2. Set your bet amount</p>
-              <p>3. Click the Spin button to play</p>
-              <p>4. Match symbols to win - 777 is the jackpot!</p>
+          <div className="bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 p-6 mb-6 max-w-2xl mx-auto"
+            style={{
+              boxShadow: '0 0 0 4px #1a1a1a, 0 0 0 8px #d4af37, 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(212, 175, 55, 0.3)'
+            }}>
+            <h3 className="text-2xl font-bold text-white mb-4 text-center">🎮 How to Play 🎮</h3>
+            <div className="space-y-3 text-white">
+              <div className="flex items-center bg-black/30 p-3 rounded-lg">
+                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center mr-3 text-white font-bold">1</div>
+                <p>Connect your wallet and ensure you have ETH staked</p>
+              </div>
+              <div className="flex items-center bg-black/30 p-3 rounded-lg">
+                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center mr-3 text-white font-bold">2</div>
+                <p>Set your bet amount using the controls</p>
+              </div>
+              <div className="flex items-center bg-black/30 p-3 rounded-lg">
+                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center mr-3 text-white font-bold">3</div>
+                <p>Pull the lever or click the Spin button to play</p>
+              </div>
+              <div className="flex items-center bg-black/30 p-3 rounded-lg">
+                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center mr-3 text-white font-bold">4</div>
+                <p>Match symbols to win - 777 is the jackpot!</p>
+              </div>
             </div>
           </div>
         </main>
         
         {/* Footer */}
-        <footer className="mt-8 text-center text-gray-400 text-sm">
-          <p>© 2025 Citrea Casino. All rights reserved.</p>
-          <p className="mt-1">🎲 Play Responsibly • 21+ Only • Ethereum Blockchain Gambling 🎲</p>
+        <footer className="mt-8 text-center">
+          <div className="bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl p-4 border-2 border-yellow-600 max-w-2xl mx-auto">
+            <div className="text-yellow-400 font-bold text-lg mb-2">CITREA CASINO</div>
+            <p className="text-gray-300">© 2025 Citrea Casino. All rights reserved.</p>
+            <p className="mt-2 text-gray-400">🎲 Play Responsibly • 21+ Only • Ethereum Blockchain Gambling 🎲</p>
+          </div>
         </footer>
+        
       </div>
       
       {/* Custom styles for animations */}
@@ -107,6 +133,11 @@ export default function SlotMachinePage() {
         /* Custom gradient for radial backgrounds */
         .bg-gradient-radial {
           background: radial-gradient(circle, var(--tw-gradient-stops));
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(5deg); }
         }
       `}</style>
     </div>

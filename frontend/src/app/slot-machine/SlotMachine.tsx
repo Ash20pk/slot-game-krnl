@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ethers } from 'krnl-sdk';
 import { useRouter } from 'next/navigation';
 import { executeKrnl, callContractProtectedFunction } from '../../components/kernels/onchain/1557';
@@ -20,23 +21,23 @@ const SYMBOLS = [
   { id: 9, symbol: '👑', name: 'Crown' }
 ];
 
-// Payout table
+// Payout table - matches the contract's calculateWinnings function
 const PAYOUTS = {
-  '777': 1000,
-  '666': 500,
-  '555': 300,
-  '444': 200,
-  '333': 150,
-  '222': 100,
-  '111': 80,
-  '000': 50,
-  two_sevens: 20,
-  one_seven: 10,
-  three_of_a_kind: 15,
-  two_cherries: 5,
-  two_bars: 5,
-  two_of_a_kind: 3,
-  one_cherry: 2
+  '777': 800,  // Jackpot - Triple 7s
+  '666': 200,  // Triple BAR symbols
+  '555': 100,  // Triple cherries
+  '444': 75,   // Triple bells
+  '333': 50,   // Triple plums
+  '222': 40,   // Triple oranges
+  '111': 30,   // Triple lemons
+  '000': 25,   // Triple watermelons
+  two_sevens: 20, // Any combination with two 7s
+  one_seven: 5,   // Any combination with one 7
+  three_of_a_kind: 15, // Any other three of a kind
+  two_cherries: 10,    // Two cherries
+  two_bars: 8,         // Two bars
+  two_of_a_kind: 3,    // Any other two of a kind
+  one_cherry: 2        // Single cherry
 };
 
 export default function EnhancedSlotMachine() {
@@ -68,11 +69,13 @@ export default function EnhancedSlotMachine() {
   const [showPayoutTable, setShowPayoutTable] = useState(false);
   
   // Animation refs
-  const reel1Ref = useRef<HTMLDivElement>(null);
-  const reel2Ref = useRef<HTMLDivElement>(null);
-  const reel3Ref = useRef<HTMLDivElement>(null);
   const machineRef = useRef<HTMLDivElement>(null);
   const coinsRef = useRef<HTMLDivElement>(null);
+  
+  // Spinning state for each reel
+  const [reel1Spinning, setReel1Spinning] = useState(false);
+  const [reel2Spinning, setReel2Spinning] = useState(false);
+  const [reel3Spinning, setReel3Spinning] = useState(false);
 
   // Check if wallet is connected on load
   useEffect(() => {
@@ -158,8 +161,11 @@ export default function EnhancedSlotMachine() {
       
       // Add shake effect to machine
       if (machineRef.current) {
-        machineRef.current.classList.add('animate-pulse');
+        machineRef.current.classList.add('animate-spin-shake');
       }
+      
+      // Start spinning animation immediately
+      startSpinningAnimation();
       
       // Validate bet amount
       if (parseFloat(betAmount) <= 0) {
@@ -167,7 +173,7 @@ export default function EnhancedSlotMachine() {
         setSpinning(false);
         setLoading(false);
         if (machineRef.current) {
-          machineRef.current.classList.remove('animate-pulse');
+          machineRef.current.classList.remove('animate-spin-shake');
         }
         return;
       }
@@ -178,7 +184,7 @@ export default function EnhancedSlotMachine() {
         setSpinning(false);
         setLoading(false);
         if (machineRef.current) {
-          machineRef.current.classList.remove('animate-pulse');
+          machineRef.current.classList.remove('animate-spin-shake');
         }
         return;
       }
@@ -247,7 +253,7 @@ export default function EnhancedSlotMachine() {
         setSpinning(false);
         setLoading(false);
         if (machineRef.current) {
-          machineRef.current.classList.remove('animate-pulse');
+          machineRef.current.classList.remove('animate-spin-shake');
         }
       }
     } catch (error) {
@@ -256,12 +262,39 @@ export default function EnhancedSlotMachine() {
       setSpinning(false);
       setLoading(false);
       if (machineRef.current) {
-        machineRef.current.classList.remove('animate-pulse');
+        machineRef.current.classList.remove('animate-spin-shake');
       }
     }
   };
 
 
+
+  // Start spinning animation immediately after bet is placed
+  const startSpinningAnimation = () => {
+    // Reset reels to a neutral position first
+    setReels([0, 0, 0]);
+    
+    // Start spinning all reels
+    setReel1Spinning(true);
+    setReel2Spinning(true);
+    setReel3Spinning(true);
+    
+    // Animate the lever pull
+    const leverElements = document.querySelectorAll('.slot-lever');
+    leverElements.forEach(el => {
+      (el as HTMLElement).style.transform = 'translateY(50px)';
+      
+      // Return lever to original position after a delay
+      setTimeout(() => {
+        (el as HTMLElement).style.transform = 'translateY(0)';
+      }, 1000);
+    });
+  };
+
+  // Track the slowing down state for each reel
+  const [reel1SlowingDown, setReel1SlowingDown] = useState(false);
+  const [reel2SlowingDown, setReel2SlowingDown] = useState(false);
+  const [reel3SlowingDown, setReel3SlowingDown] = useState(false);
 
   // Animate the reels based on the score
   const animateReels = (scoreString: string) => {
@@ -273,44 +306,96 @@ export default function EnhancedSlotMachine() {
       
       const finalReels = [digit1, digit2, digit3];
       
-      // Simulate spinning with different durations for each reel
-      const spinDurations = [1500, 2000, 2500];
-      
-      // Animate each reel
-      [reel1Ref, reel2Ref, reel3Ref].forEach((ref, index) => {
-        if (ref.current) {
-          ref.current.style.animation = `reel-spin ${spinDurations[index]}ms ease-out`;
+      // Create a function to show all symbols in a reel before settling
+      const runThroughSymbols = (reelIndex: number, finalValue: number, duration: number) => {
+        // Show each symbol for a short time
+        let symbolIndex = 0;
+        const totalSymbols = SYMBOLS.length;
+        const intervalTime = duration / totalSymbols;
+        
+        // Update the specific reel to show each symbol in sequence
+        const interval = setInterval(() => {
+          setReels(prev => {
+            const newReels = [...prev];
+            newReels[reelIndex] = symbolIndex % totalSymbols;
+            return newReels;
+          });
           
-          setTimeout(() => {
-            if (ref.current) {
-              ref.current.style.animation = 'reel-stop 0.5s ease-out';
-              setReels(prev => {
-                const newReels = [...prev];
-                newReels[index] = finalReels[index];
-                return newReels;
-              });
-            }
-          }, spinDurations[index]);
-        }
-      });
+          symbolIndex++;
+          
+          // When we've gone through all symbols, clear interval
+          if (symbolIndex >= totalSymbols) {
+            clearInterval(interval);
+            
+            // Finally set to the actual result value
+            setReels(prev => {
+              const newReels = [...prev];
+              newReels[reelIndex] = finalValue;
+              return newReels;
+            });
+          }
+        }, intervalTime);
+      };
       
-      // Check for win after all reels stop
+      // First reel animation
       setTimeout(() => {
-        checkForWin(finalReels);
-        setSpinning(false);
-        setLoading(false);
-        if (machineRef.current) {
-          machineRef.current.classList.remove('animate-pulse');
-        }
-      }, Math.max(...spinDurations) + 500);
+        setReel1SlowingDown(true);
+        
+        // Then stops on the correct symbol
+        setTimeout(() => {
+          setReel1Spinning(false);
+          setReel1SlowingDown(false);
+          runThroughSymbols(0, finalReels[0], 800);
+        }, 1000);
+      }, 500);
+      
+      // Second reel animation
+      setTimeout(() => {
+        setReel2SlowingDown(true);
+        
+        // Then stops on the correct symbol
+        setTimeout(() => {
+          setReel2Spinning(false);
+          setReel2SlowingDown(false);
+          runThroughSymbols(1, finalReels[1], 800);
+        }, 1000);
+      }, 2000);
+      
+      // Third reel animation
+      setTimeout(() => {
+        setReel3SlowingDown(true);
+        
+        // Then stops on the correct symbol
+        setTimeout(() => {
+          setReel3Spinning(false);
+          setReel3SlowingDown(false);
+          runThroughSymbols(2, finalReels[2], 800);
+          
+          // Check for win after all reels stop and all symbols have been shown
+          setTimeout(() => {
+            checkForWin(finalReels);
+            setSpinning(false);
+            setLoading(false);
+            if (machineRef.current) {
+              machineRef.current.classList.remove('animate-spin-shake');
+            }
+          }, 1000);
+        }, 1000);
+      }, 3500);
     } catch (error) {
       console.error('Error animating reels:', error);
       setSpinning(false);
       setLoading(false);
+      setReel1Spinning(false);
+      setReel2Spinning(false);
+      setReel3Spinning(false);
+      setReel1SlowingDown(false);
+      setReel2SlowingDown(false);
+      setReel3SlowingDown(false);
     }
   };
 
-  // Check for winning combinations
+  // Check for winning combinations - matches the contract's calculateWinnings function
   const checkForWin = (finalReels: number[]) => {
     const [r1, r2, r3] = finalReels;
     let multiplier = 0;
@@ -322,26 +407,75 @@ export default function EnhancedSlotMachine() {
       winType = 'JACKPOT!';
       setJackpot(true);
     }
-    // Other triples
-    else if (r1 === r2 && r2 === r3) {
-      const tripleKey = `${r1}${r1}${r1}` as keyof typeof PAYOUTS;
-      multiplier = PAYOUTS[tripleKey] || PAYOUTS.three_of_a_kind;
-      winType = 'THREE OF A KIND!';
+    // Triple BAR symbols (represented by 6)
+    else if (r1 === 6 && r2 === 6 && r3 === 6) {
+      multiplier = PAYOUTS['666'];
+      winType = 'TRIPLE BARS!';
     }
-    // Two 7s
+    // Triple cherries (represented by 5)
+    else if (r1 === 5 && r2 === 5 && r3 === 5) {
+      multiplier = PAYOUTS['555'];
+      winType = 'TRIPLE CHERRIES!';
+    }
+    // Triple bells (represented by 4)
+    else if (r1 === 4 && r2 === 4 && r3 === 4) {
+      multiplier = PAYOUTS['444'];
+      winType = 'TRIPLE BELLS!';
+    }
+    // Triple plums (represented by 3)
+    else if (r1 === 3 && r2 === 3 && r3 === 3) {
+      multiplier = PAYOUTS['333'];
+      winType = 'TRIPLE PLUMS!';
+    }
+    // Triple oranges (represented by 2)
+    else if (r1 === 2 && r2 === 2 && r3 === 2) {
+      multiplier = PAYOUTS['222'];
+      winType = 'TRIPLE ORANGES!';
+    }
+    // Triple lemons (represented by 1)
+    else if (r1 === 1 && r2 === 1 && r3 === 1) {
+      multiplier = PAYOUTS['111'];
+      winType = 'TRIPLE LEMONS!';
+    }
+    // Triple watermelons (represented by 0)
+    else if (r1 === 0 && r2 === 0 && r3 === 0) {
+      multiplier = PAYOUTS['000'];
+      winType = 'TRIPLE WATERMELONS!';
+    }
+    // Any combination with two 7s
     else if ((r1 === 7 && r2 === 7) || (r2 === 7 && r3 === 7) || (r1 === 7 && r3 === 7)) {
       multiplier = PAYOUTS.two_sevens;
       winType = 'TWO SEVENS!';
     }
-    // One 7
+    // Any combination with one 7
     else if (r1 === 7 || r2 === 7 || r3 === 7) {
       multiplier = PAYOUTS.one_seven;
       winType = 'LUCKY SEVEN!';
     }
-    // Two of a kind
+    // Any three of a kind (not covered by specific combinations above)
+    else if (r1 === r2 && r2 === r3) {
+      multiplier = PAYOUTS.three_of_a_kind;
+      winType = 'THREE OF A KIND!';
+    }
+    // Two cherries (represented by 5)
+    else if ((r1 === 5 && r2 === 5) || (r2 === 5 && r3 === 5) || (r1 === 5 && r3 === 5)) {
+      multiplier = PAYOUTS.two_cherries;
+      winType = 'TWO CHERRIES!';
+    }
+    // Two bars (represented by 6)
+    else if ((r1 === 6 && r2 === 6) || (r2 === 6 && r3 === 6) || (r1 === 6 && r3 === 6)) {
+      multiplier = PAYOUTS.two_bars;
+      winType = 'TWO BARS!';
+    }
+    // Any other two of a kind
     else if (r1 === r2 || r2 === r3 || r1 === r3) {
       multiplier = PAYOUTS.two_of_a_kind;
       winType = 'PAIR!';
+    }
+    // Single cherry (represented by 5)
+    else if (r1 === 5 || r2 === 5 || r3 === 5) {
+      multiplier = PAYOUTS.one_cherry;
+      winType = 'CHERRY!';
     }
     
     if (multiplier > 0) {
@@ -349,30 +483,27 @@ export default function EnhancedSlotMachine() {
       setWinAmount(win.toFixed(4));
       setIsWin(true);
       
-      // Coin animation effect
-      if (coinsRef.current) {
-        coinsRef.current.innerHTML = '';
-        for (let i = 0; i < 10; i++) {
-          const coin = document.createElement('div');
-          coin.className = 'coin';
-          coin.style.setProperty('--random-x', `${Math.random() * 200 - 100}px`);
-          coin.className = 'absolute w-5 h-5 rounded-full border-2 border-yellow-600 animate-bounce';
-          coin.style.background = 'radial-gradient(circle at center, #ffd700, #ffed4e)';
-          coin.style.left = `${Math.random() * 100}%`;
-          coin.style.top = `${Math.random() * 100}%`;
-          coin.style.animationDelay = `${i * 0.1}s`;
-          coin.style.animationDuration = `${1 + Math.random()}s`;
-          coinsRef.current.appendChild(coin);
-          
-          // Remove coin after animation
-          setTimeout(() => {
-            if (coin.parentNode) {
-              coin.parentNode.removeChild(coin);
-            }
-          }, 2000);
-        }
-      }
+      // Create and show toast notification
+      showWinToast(winType, win.toFixed(4));
     }
+  };
+  
+  // Toast notification for wins
+  const [toasts, setToasts] = useState<{message: string, type: string, id: number}[]>([]);
+  
+  const showWinToast = (winType: string, amount: string) => {
+    const newToast = {
+      message: `${winType} You won ${amount} ETH!`,
+      type: winType.includes('JACKPOT') ? 'jackpot' : 'win',
+      id: Date.now()
+    };
+    
+    setToasts(prev => [...prev, newToast]);
+    
+    // Auto-remove toast after 5 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== newToast.id));
+    }, 5000);
   };
 
   // Handle withdraw
@@ -450,18 +581,41 @@ export default function EnhancedSlotMachine() {
   return (
     <div className="flex flex-col items-center justify-center">
       {/* Main Slot Machine */}
-      <div 
-        ref={machineRef}
-        className="relative bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 p-8 max-w-2xl w-full mx-auto"
-        style={{
-          boxShadow: '0 0 0 4px #1a1a1a, 0 0 0 8px #d4af37, 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(212, 175, 55, 0.3)'
-        }}
+      <div className="relative flex items-center">
+        {/* Side Lever */}
+        <div className="relative mr-4 hidden md:block">
+          <div className="w-8 h-64 bg-gradient-to-b from-gray-700 to-gray-900 rounded-t-full rounded-b-full flex flex-col items-center justify-between p-2">
+            <div className="w-6 h-6 rounded-full bg-red-600 border-2 border-red-800"></div>
+            <div 
+              className={`slot-lever w-6 h-24 bg-gradient-to-b from-gray-400 to-gray-600 rounded-full relative transition-transform duration-300 ${spinning ? 'transform translate-y-12' : ''}`}
+              style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
+            >
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-red-500 border-2 border-red-700"></div>
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-10 h-10 rounded-full bg-gradient-to-b from-red-500 to-red-700 border-2 border-red-800 flex items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-red-600 border border-red-800"></div>
+              </div>
+            </div>
+            <div className="w-full h-4 bg-gradient-to-b from-gray-600 to-gray-800 rounded-full"></div>
+          </div>
+          <div 
+            className="w-4 h-32 bg-gradient-to-b from-gray-800 to-gray-900 absolute -right-2 top-1/2 transform -translate-y-1/2 rounded-r-lg"
+            style={{ boxShadow: '2px 0 5px rgba(0,0,0,0.3)' }}
+          ></div>
+        </div>
+        
+        {/* Main Slot Machine */}
+        <div 
+          ref={machineRef}
+          className="relative bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 p-8 max-w-2xl w-full mx-auto"
+          style={{
+            boxShadow: '0 0 0 4px #1a1a1a, 0 0 0 8px #d4af37, 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(212, 175, 55, 0.3)'
+          }}
       >
 
         {/* Casino Name Display */}
         <div className="bg-black rounded-lg p-4 mb-6 border-4 border-red-600">
           <div className="text-center">
-            <div className="text-2xl font-bold text-red-500 animate-pulse">CITREA SLOTS</div>
+            <div className="text-2xl font-bold text-red-500">CITREA SLOTS</div>
             <div className="text-sm text-yellow-400">POWERED BY KRNL</div>
           </div>
         </div>
@@ -474,9 +628,9 @@ export default function EnhancedSlotMachine() {
               <div className="text-2xl font-bold text-white">{parseFloat(userStake).toFixed(4)} ETH</div>
             </div>
           </div>
-          <div className={`bg-gradient-to-r from-yellow-600 to-yellow-800 rounded-lg p-4 border-2 border-yellow-400 ${isWin ? 'animate-pulse' : ''}`}>
+          <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-4 border-2 border-blue-400">
             <div className="text-center">
-              <div className="text-sm text-yellow-200">LAST WIN</div>
+              <div className="text-sm text-blue-200">LAST WIN</div>
               <div className="text-2xl font-bold text-white">{parseFloat(winAmount).toFixed(4)} ETH</div>
             </div>
           </div>
@@ -484,55 +638,84 @@ export default function EnhancedSlotMachine() {
 
         {/* Slot Reels */}
         <div className="bg-black rounded-xl p-6 mb-6 border-4 border-gray-600 relative overflow-hidden">
-          {/* Win flash overlay */}
-          {isWin && (
-            <div className="absolute inset-0 bg-yellow-400 opacity-30 animate-pulse z-10 rounded-lg"></div>
-          )}
-          
-          {/* Jackpot explosion effect */}
-          {jackpot && (
-            <div className="absolute inset-0 bg-gradient-to-r from-red-500 via-yellow-500 to-red-500 opacity-50 animate-pulse z-10 rounded-lg"></div>
-          )}
+          {/* No win overlay effects */}
           
           {/* Reel containers */}
           <div className="grid grid-cols-3 gap-6">
-            {[reel1Ref, reel2Ref, reel3Ref].map((ref, index) => (
-              <div key={index} className="relative">
-                {/* Reel frame */}
-                <div className="bg-gradient-to-b from-gray-300 to-gray-500 rounded-lg p-2 shadow-inner">
-                  <div 
-                    ref={ref}
-                    className="bg-white rounded-lg h-32 flex items-center justify-center border-4 border-gray-400 overflow-hidden relative"
-                  >
-                    {/* Symbol display */}
-                    <div className="text-6xl select-none relative z-20">
-                      {SYMBOLS[reels[index]]?.symbol || '❓'}
+            {[0, 1, 2].map((index) => {
+              // Determine if this reel is spinning or slowing down
+              const isSpinning = index === 0 ? reel1Spinning : index === 1 ? reel2Spinning : reel3Spinning;
+              const isSlowingDown = index === 0 ? reel1SlowingDown : index === 1 ? reel2SlowingDown : reel3SlowingDown;
+              
+              return (
+                <div key={index} className="relative">
+                  {/* Reel frame */}
+                  <div className="bg-gradient-to-b from-gray-300 to-gray-500 rounded-lg p-2 shadow-inner">
+                    <div 
+                      className="bg-white rounded-lg h-32 flex items-center justify-center border-4 border-gray-400 overflow-hidden relative"
+                      style={{ perspective: '1000px' }}
+                    >
+                      <AnimatePresence>
+                        {isSpinning ? (
+                          // Spinning reel animation
+                          <motion.div
+                            key="spinning"
+                            className="absolute inset-0 flex flex-col items-center justify-center"
+                            initial={{ y: 0 }}
+                            animate={{
+                              y: ["-100%", "0%"],
+                              transition: {
+                                y: {
+                                  repeat: Infinity,
+                                  repeatType: "loop",
+                                  duration: isSlowingDown ? 3.0 : 0.5, // Slower when slowing down, faster when spinning
+                                  ease: isSlowingDown ? "easeOut" : "linear" // Change easing when slowing down
+                                }
+                              }
+                            }}
+                          >
+                            {/* Triple the symbols to create a seamless loop with more symbols */}
+                            {[...SYMBOLS, ...SYMBOLS, ...SYMBOLS].map((symbol, i) => (
+                              <div key={i} className="h-32 w-full flex items-center justify-center">
+                                <div className="text-5xl select-none">{symbol.symbol}</div>
+                              </div>
+                            ))}
+                          </motion.div>
+                        ) : (
+                          // Static symbol display
+                          <motion.div
+                            key="static"
+                            className="text-5xl select-none"
+                            initial={{ scale: 1.2, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ type: "spring", duration: 0.5 }}
+                          >
+                            {SYMBOLS[reels[index]]?.symbol || '❓'}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      
+                      {/* Spinning effect overlay */}
+                      {spinning && (
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white to-transparent opacity-20 z-10"></div>
+                      )}
                     </div>
-                    
-                    {/* Spinning effect overlay */}
-                    {spinning && (
-                      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white to-transparent opacity-70 animate-pulse z-10"></div>
-                    )}
                   </div>
                 </div>
-                
-                {/* Reel number */}
-                <div className="text-center text-xs text-gray-400 mt-1">REEL {index + 1}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           
           {/* Win line */}
           <div className="absolute top-1/2 left-4 right-4 h-1 bg-red-500 transform -translate-y-1/2 opacity-50"></div>
           
-          {/* Coin explosion container */}
-          <div ref={coinsRef} className="absolute inset-0 pointer-events-none"></div>
+          {/* No coin explosion container */}
         </div>
 
         {/* Controls */}
         <div className="space-y-4">
           {/* Bet Amount */}
-          <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-lg p-4 border-2 border-blue-400">
+          <div className="p-4 ">
             <div className="flex items-center justify-between">
               <span className="text-white font-bold">BET AMOUNT:</span>
               <div className="flex items-center space-x-2">
@@ -582,6 +765,15 @@ export default function EnhancedSlotMachine() {
                   ? '0 5px 15px rgba(0,0,0,0.3)' 
                   : '0 10px 25px rgba(0,0,0,0.3), 0 0 30px rgba(239, 68, 68, 0.3)'
               }}
+              onMouseDown={() => {
+                // Pull the lever down when clicking the spin button
+                if (!spinning && !loading) {
+                  const leverElements = document.querySelectorAll('.slot-lever');
+                  leverElements.forEach(el => {
+                    (el as HTMLElement).style.transform = 'translateY(50px)';
+                  });
+                }
+              }}
             >
               {/* Button shine effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 -skew-x-12 transform translate-x-full group-hover:translate-x-[-200%] transition-transform duration-1000"></div>
@@ -598,33 +790,36 @@ export default function EnhancedSlotMachine() {
           </div>
         </div>
 
-        {/* Win notification */}
-        {isWin && (
-          <div className={`mt-6 p-6 rounded-xl border-4 text-center ${
-            jackpot 
-              ? 'bg-gradient-to-r from-yellow-400 to-red-500 border-yellow-300' 
-              : 'bg-gradient-to-r from-green-400 to-blue-500 border-green-300'
-          }`}>
-            <div className="text-3xl font-bold text-white mb-2">
-              {jackpot ? ' JACKPOT! ' : ' YOU WIN! '}
-            </div>
-            <div className="text-2xl font-bold text-white">
-              {winAmount} ETH
-            </div>
-            {jackpot && (
-              <div className="text-lg text-yellow-200 animate-bounce">
-                MAXIMUM PAYOUT! 
+        {/* Toast Container */}
+        <div className="fixed top-4 right-4 z-50 space-y-4">
+          {toasts.map(toast => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 100 }}
+              className={`p-4 rounded-lg shadow-lg max-w-sm ${toast.type === 'jackpot' ? 'bg-gradient-to-r from-yellow-400 to-red-500 border-2 border-yellow-300' : 'bg-gradient-to-r from-green-400 to-blue-500 border-2 border-green-300'}`}
+            >
+              <div className="flex justify-between">
+                <div className="text-white font-bold">{toast.message}</div>
+                <button
+                  onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+                  className="text-white hover:text-gray-200"
+                >
+                  ×
+                </button>
               </div>
-            )}
-          </div>
-        )}
+            </motion.div>
+          ))}
+        </div>
+      </div>
       </div>
       
       {/* Custom styles for animations */}
       <style jsx>{`
         @keyframes reel-spin {
-          0% { transform: translateY(0) rotateX(0deg); }
-          100% { transform: translateY(-500px) rotateX(360deg); }
+          0% { transform: translateY(0); }
+          100% { transform: translateY(-320px); }
         }
         
         @keyframes reel-stop {
@@ -645,6 +840,28 @@ export default function EnhancedSlotMachine() {
             transform: scale(1) translate(var(--random-x), var(--random-y)) rotate(720deg); 
             opacity: 0; 
           }
+        }
+        
+        @keyframes spin-shake {
+          0% { transform: rotate(0deg); }
+          25% { transform: rotate(0.5deg); }
+          50% { transform: rotate(0deg); }
+          75% { transform: rotate(-0.5deg); }
+          100% { transform: rotate(0deg); }
+        }
+        
+        .animate-spin-shake {
+          animation: spin-shake 0.2s ease-in-out infinite;
+        }
+        
+        @keyframes lever-pull {
+          0% { transform: translateY(0); }
+          50% { transform: translateY(50px); }
+          100% { transform: translateY(0); }
+        }
+        
+        .slot-lever {
+          transition: transform 0.3s ease-out;
         }
         
         .coin {

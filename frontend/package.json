@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "framer-motion": "^12.12.1",
     "intro.js": "^7.2.0",
     "krnl-sdk": "^0.0.5",
     "next": "15.3.0",
