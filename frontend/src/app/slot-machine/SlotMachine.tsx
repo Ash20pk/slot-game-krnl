@@ -6,6 +6,7 @@ import { ethers } from 'krnl-sdk';
 import { useRouter } from 'next/navigation';
 import { executeKrnl, callContractProtectedFunction } from '../../components/kernels/onchain/1557';
 import { abi as contractAbi, CONTRACT_ADDRESS, KERNEL_ID } from '../../components/kernels/onchain/1557/config';
+import { playSound, preloadSounds } from '../../utils/sounds';
 
 // Slot symbols with emojis for visual appeal
 const SYMBOLS = [
@@ -79,6 +80,8 @@ export default function EnhancedSlotMachine() {
 
   // Check if wallet is connected on load
   useEffect(() => {
+    // Preload sounds
+    preloadSounds();
     checkWalletConnection();
   }, []);
 
@@ -108,16 +111,16 @@ export default function EnhancedSlotMachine() {
           setWalletConnected(true);
         } else {
           // Redirect to home if wallet is not connected
-          router.push('/slot-machine/home');
+          router.push('/');
         }
       } catch (error) {
         console.error('Error checking wallet connection:', error);
         // Redirect to home if there's an error
-        router.push('/slot-machine/home');
+        router.push('/');
       }
     } else {
       // Redirect to home if MetaMask is not installed
-      router.push('/slot-machine/home');
+      router.push('/');
     }
   };
 
@@ -150,6 +153,10 @@ export default function EnhancedSlotMachine() {
     if (spinning || loading) return;
     
     try {
+      // Play lever pull and reel spin sounds together
+      playSound('leverPull');
+      playSound('reelSpin');
+      
       setSpinning(true);
       setLoading(true);
       setError('');
@@ -169,6 +176,8 @@ export default function EnhancedSlotMachine() {
       
       // Validate bet amount
       if (parseFloat(betAmount) <= 0) {
+        // Play error sound
+        playSound('error');
         setError('Bet amount must be greater than 0');
         setSpinning(false);
         setLoading(false);
@@ -180,6 +189,8 @@ export default function EnhancedSlotMachine() {
       
       // Check if user has enough stake
       if (parseFloat(betAmount) > parseFloat(userStake)) {
+        // Play error sound
+        playSound('error');
         setError('Insufficient balance for this bet');
         setSpinning(false);
         setLoading(false);
@@ -258,6 +269,8 @@ export default function EnhancedSlotMachine() {
       }
     } catch (error) {
       console.error('Error placing bet:', error);
+      // Play error sound
+      playSound('error');
       setError('Failed to place bet. Please try again.');
       setSpinning(false);
       setLoading(false);
@@ -406,6 +419,8 @@ export default function EnhancedSlotMachine() {
       multiplier = PAYOUTS['777'];
       winType = 'JACKPOT!';
       setJackpot(true);
+      // Play jackpot sound
+      playSound('jackpot', 0.8);
     }
     // Triple BAR symbols (represented by 6)
     else if (r1 === 6 && r2 === 6 && r3 === 6) {
@@ -482,6 +497,26 @@ export default function EnhancedSlotMachine() {
       const win = parseFloat(betAmount) * multiplier;
       setWinAmount(win.toFixed(4));
       setIsWin(true);
+      
+      // Play win sound if not a jackpot (jackpot has its own sound)
+      if (!jackpot) {
+        playSound('win');
+      }
+      
+      // Animate coins falling if it's a win
+      if (coinsRef.current) {
+        coinsRef.current.classList.add('show-coins');
+        
+        // Play coin drop sound
+        playSound('coinDrop');
+        
+        // Hide coins after animation
+        setTimeout(() => {
+          if (coinsRef.current) {
+            coinsRef.current.classList.remove('show-coins');
+          }
+        }, 3000);
+      }
       
       // Create and show toast notification
       showWinToast(winType, win.toFixed(4));
@@ -575,7 +610,7 @@ export default function EnhancedSlotMachine() {
 
   // Go back to home
   const goToHome = () => {
-    router.push('/slot-machine/home');
+    router.push('/');
   };
 
   return (
@@ -606,9 +641,11 @@ export default function EnhancedSlotMachine() {
         {/* Main Slot Machine */}
         <div 
           ref={machineRef}
-          className="relative bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 p-8 max-w-2xl w-full mx-auto"
+          className="relative bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 p-8 mx-auto"
           style={{
-            boxShadow: '0 0 0 4px #1a1a1a, 0 0 0 8px #d4af37, 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(212, 175, 55, 0.3)'
+            boxShadow: '0 0 0 4px #1a1a1a, 0 0 0 8px #d4af37, 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(212, 175, 55, 0.3)',
+            width: '500px',
+            height: '720px'
           }}
       >
 

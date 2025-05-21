@@ -3,32 +3,108 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ethers } from 'krnl-sdk';
+import { CONTRACT_ADDRESS, abi as contractAbi } from '../components/kernels/onchain/1557/config';
+import { connectWallet, checkWalletConnection, isDisclaimerAccepted, saveDisclaimerAcceptance } from '../utils/wallet';
+import { playSound, preloadSounds } from '../utils/sounds';
 
 export default function Home() {
   const router = useRouter();
   const [walletConnected, setWalletConnected] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState('');
   const [leverPulled, setLeverPulled] = useState(false);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
-
-  // Connect wallet
-  const connectWallet = async () => {
-    if (typeof window !== 'undefined' && window.ethereum) {
-      setConnecting(true);
-      setError('');
-      try {
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
+  const [showToast, setShowToast] = useState(false);
+  const [connectedAddress, setConnectedAddress] = useState('');
+  const [reelSpinning, setReelSpinning] = useState(true);
+  
+  // Check wallet connection and stop reel spinning on component mount
+  useEffect(() => {
+    // Stop the reel spinning after a shorter delay
+    const timer = setTimeout(() => {
+      setReelSpinning(false);
+    }, 800);
+    
+    // Preload sounds
+    preloadSounds();
+    
+    // Check if wallet is already connected
+    const checkWallet = async () => {
+      const result = await checkWalletConnection();
+      
+      if (result.success) {
         setWalletConnected(true);
-        setConnecting(false);
-      } catch (error) {
-        console.error('Error connecting wallet:', error);
-        setError('Failed to connect wallet');
-        setConnecting(false);
+        setConnectedAddress(result.address!);
+        
+        // Check if user has staked
+        try {
+          const stake = await result.contract!.getStake(result.address!);
+          const stakeAmount = ethers.formatEther(stake);
+          
+          // If user has staked, redirect to cashier page
+          if (parseFloat(stakeAmount) > 0) {
+            router.push('/cashier');
+          }
+        } catch (error) {
+          console.error('Error checking stake:', error);
+        }
       }
-    } else {
-      setError('MetaMask is not installed');
+      
+      // Check if disclaimer has been accepted
+      if (isDisclaimerAccepted()) {
+        setDisclaimerAccepted(true);
+      }
+    };
+    
+    checkWallet();
+    
+    return () => clearTimeout(timer);
+  }, [router]);
+
+  // Connect wallet function
+  const connectWalletHandler = async () => {
+    try {
+      // Play button click sound
+      playSound('buttonClick');
+      setIsConnecting(true);
+      
+      const result = await connectWallet();
+      
+      if (result.success) {
+        setWalletConnected(true);
+        setConnectedAddress(result.address!);
+        setShowToast(true);
+        
+        // Check if user has staked
+        try {
+          const stake = await result.contract!.getStake(result.address!);
+          const stakeAmount = ethers.formatEther(stake);
+          
+          // If user has staked, redirect to cashier page
+          if (parseFloat(stakeAmount) > 0) {
+            router.push('/cashier');
+            return;
+          }
+        } catch (error) {
+          playSound('error');
+          console.error('Error checking stake:', error);
+        }
+        
+        // Hide toast after 3 seconds
+        setTimeout(() => {
+          setShowToast(false);
+        }, 3000);
+      } else {
+        // Play error sound
+        playSound('error');
+        console.error('Error connecting wallet:', result.error);
+      }
+    } catch (error) {
+      console.error('Error connecting to wallet:', error);
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -36,6 +112,10 @@ export default function Home() {
   const enterCasino = () => {
     if (walletConnected) {
       if (disclaimerAccepted) {
+        // Play lever pull and reel spin sounds together
+        playSound('leverPull');
+        playSound('reelSpin');
+        
         // Pull the lever animation
         setLeverPulled(true);
         
@@ -44,19 +124,39 @@ export default function Home() {
           router.push('/slot-machine');
         }, 1000);
       } else {
+        // Play button click sound
+        playSound('buttonClick');
+        
         // Show disclaimer modal
         setShowDisclaimerModal(true);
       }
+    } else {
+      // Play error sound if wallet not connected
+      playSound('error');
     }
   };
   
   // Accept disclaimer and proceed
   const acceptDisclaimer = () => {
+    // Play button click sound
+    playSound('buttonClick');
+    
     setDisclaimerAccepted(true);
     setShowDisclaimerModal(false);
     
+    // Save disclaimer acceptance using shared utility
+    saveDisclaimerAcceptance();
+    
     // Pull the lever animation
     setLeverPulled(true);
+    
+    // Play lever pull sound
+    playSound('leverPull');
+    
+    // Play reel spin sound after a short delay
+    setTimeout(() => {
+      playSound('reelSpin');
+    }, 300);
     
     // Delay navigation to show the lever animation
     setTimeout(() => {
@@ -101,106 +201,167 @@ export default function Home() {
         ))}
       </div>
       
-      <div className="relative z-10 max-w-2xl w-full">
-        {/* Casino Machine with Side Lever */}
-        <div className="relative flex items-center">
-          {/* Side Lever */}
-          <div className="relative mr-4 hidden md:block">
-            <div className="w-8 h-64 bg-gradient-to-b from-gray-700 to-gray-900 rounded-t-full rounded-b-full flex flex-col items-center justify-between p-2">
-              <div className="w-6 h-6 rounded-full bg-red-600 border-2 border-red-800"></div>
-              <div 
-                className={`slot-lever w-6 h-24 bg-gradient-to-b from-gray-400 to-gray-600 rounded-full relative transition-transform duration-300 ${leverPulled ? 'transform translate-y-12' : ''}`}
-                style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
-              >
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-red-500 border-2 border-red-700"></div>
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-10 h-10 rounded-full bg-gradient-to-b from-red-500 to-red-700 border-2 border-red-800 flex items-center justify-center">
-                  <div className="w-6 h-6 rounded-full bg-red-600 border border-red-800"></div>
-                </div>
-              </div>
-              <div className="w-full h-4 bg-gradient-to-b from-gray-600 to-gray-800 rounded-full"></div>
-            </div>
-            <div 
-              className="w-4 h-32 bg-gradient-to-b from-gray-800 to-gray-900 absolute -right-2 top-1/2 transform -translate-y-1/2 rounded-r-lg"
-              style={{ boxShadow: '2px 0 5px rgba(0,0,0,0.3)' }}
-            ></div>
-          </div>
-          
+      {/* Toast notification for wallet connection */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div 
+            className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center"
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Wallet Connected!
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      <div className="relative z-10 flex items-center justify-center w-full">
+        {/* Casino Machine with Side Lever - Centered */}
+        <div className="relative flex items-center justify-center mx-auto">
           {/* Slot Machine Frame */}
           <div 
-            className="relative bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 p-8 max-w-2xl w-full mx-auto"
+            className="relative bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 p-8 mx-auto flex flex-col items-center"
             style={{
               boxShadow: '0 0 0 4px #1a1a1a, 0 0 0 8px #d4af37, 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(212, 175, 55, 0.3)',
-              minHeight: '680px'
+              width: '500px',
+              height: '720px'
             }}>
-            {/* Casino Name Display */}
-            <div className="bg-black rounded-lg p-4 mb-6 border-4 border-red-600">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-500">CITREA SLOTS</div>
-                <div className="text-sm text-yellow-400">POWERED BY KRNL</div>
+            
+            {/* Side Lever - Attached to the machine */}
+            <div className="absolute -left-12 top-1/3 hidden md:block">
+              <div className="w-8 h-64 bg-gradient-to-b from-gray-700 to-gray-900 rounded-t-full rounded-b-full flex flex-col items-center justify-between p-2">
+                <div className="w-6 h-6 rounded-full bg-red-600 border-2 border-red-800"></div>
+                <div 
+                  className={`slot-lever w-6 h-24 bg-gradient-to-b from-gray-400 to-gray-600 rounded-full relative transition-transform duration-300 ${leverPulled ? 'transform translate-y-12' : ''}`}
+                  style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
+                >
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-red-500 border-2 border-red-700"></div>
+                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-10 h-10 rounded-full bg-gradient-to-b from-red-500 to-red-700 border-2 border-red-800 flex items-center justify-center">
+                    <div className="w-6 h-6 rounded-full bg-red-600 border border-red-800"></div>
+                  </div>
+                </div>
+                <div className="w-full h-4 bg-gradient-to-b from-gray-600 to-gray-800 rounded-full"></div>
               </div>
+              <div 
+                className="w-4 h-32 bg-gradient-to-b from-gray-800 to-gray-900 absolute -right-2 top-1/2 transform -translate-y-1/2 rounded-r-lg"
+                style={{ boxShadow: '2px 0 5px rgba(0,0,0,0.3)' }}
+              ></div>
             </div>
             
-            {/* Welcome Display - Mimics Balance and Win Display */}
-            <div className="grid grid-cols-1 gap-4 mb-6">
-              <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-4 border-2 border-blue-400">
-                <div className="text-center">
-                  <div className="text-sm text-blue-200">WELCOME</div>
-                  <div className="text-2xl font-bold text-white">BLOCKCHAIN CASINO</div>
+            {/* Slot Reel - Metal frame with white background - CENTERED AND LARGER */}
+            <div className="bg-black rounded-xl p-6 mb-6 border-4 border-gray-600 relative overflow-hidden w-full">
+              {/* Reel container */}
+              <div className="flex justify-center">
+                <div className="relative w-full">
+                  {/* Reel frame - metal look */}
+                  <div className="bg-gradient-to-b from-gray-300 to-gray-500 rounded-lg p-3 shadow-inner">
+                    <div 
+                      className="bg-white rounded-lg h-64 flex items-center justify-center border-4 border-gray-400 overflow-hidden relative"
+                      style={{ perspective: '1000px' }}
+                    >
+                      <AnimatePresence>
+                        {reelSpinning ? (
+                          // Spinning reel animation - blank white screen with spinning effect
+                          <motion.div
+                            key="spinning"
+                            className="absolute inset-0 flex items-center justify-center"
+                            animate={{
+                              rotateX: [0, 360],
+                              transition: {
+                                rotateX: {
+                                  repeat: Infinity,
+                                  repeatType: "loop",
+                                  duration: 0.5,
+                                  ease: "linear"
+                                }
+                              }
+                            }}
+                          >
+                            {/* Spinning blur effect */}
+                            <div className="absolute inset-0 bg-white"></div>
+                            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-200 to-transparent opacity-30 animate-pulse"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-full h-1 bg-gray-300 animate-pulse"></div>
+                            </div>
+                          </motion.div>
+                        ) : (
+                          // Static message display after spinning stops
+                          <motion.div
+                            key="static"
+                            className="text-center w-full"
+                            initial={{ opacity: 0, rotateX: 90 }}
+                            animate={{ opacity: 1, rotateX: 0 }}
+                            transition={{ type: "spring", duration: 0.4, bounce: 0.4 }}
+                          >
+                            <div className="text-red-500 text-6xl font-bold mb-6">CITREA SLOTS</div>
+                            <div className="text-blue-400 text-2xl mb-4">POWERED BY KRNL</div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      
+                      {/* Spinning effect overlay */}
+                      {reelSpinning && (
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white to-transparent opacity-50 z-10 animate-pulse"></div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
             
-            {/* Slot Preview - Mimics Reels */}
-            <div className="bg-black rounded-xl p-6 mb-6 border-4 border-gray-600 relative overflow-hidden">
-              <div className="flex flex-col items-center justify-center h-32">
-                <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500">🎰 WELCOME 🎰</div>
-                <p className="text-white mt-2">Experience the future of blockchain gambling</p>
-              </div>
-            </div>
-            
-            <div className="text-center">
-            
-            <div className="flex justify-center space-x-6 mb-8">
-              <div className="text-center">
-                <div className="w-12 h-12 mx-auto bg-blue-900/50 rounded-full flex items-center justify-center mb-2 border border-blue-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <p className="text-sm font-medium text-blue-400">Secure</p>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 mx-auto bg-purple-900/50 rounded-full flex items-center justify-center mb-2 border border-purple-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
-                <p className="text-sm font-medium text-purple-400">Transparent</p>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 mx-auto bg-green-900/50 rounded-full flex items-center justify-center mb-2 border border-green-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                  </svg>
-                </div>
-                <p className="text-sm font-medium text-green-400">Fair</p>
-              </div>
-            </div>
-            
-            {/* Connect wallet */}
-            {!walletConnected ? (
-              <button
-                onClick={connectWallet}
-                disabled={connecting}
-                className={`relative overflow-hidden w-full bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white font-bold py-4 px-6 rounded-full border-4 border-yellow-400 shadow-lg transition-all transform ${connecting ? 'scale-95 opacity-75 cursor-not-allowed' : 'hover:scale-105 hover:shadow-xl'}`}
-                style={{
-                  boxShadow: connecting 
-                    ? '0 5px 15px rgba(0,0,0,0.3)' 
-                    : '0 10px 25px rgba(0,0,0,0.3), 0 0 30px rgba(239, 68, 68, 0.3)'
-                }}
-                onMouseDown={() => {
-                  if (!connecting) {
-                    // Pull the lever when clicking connect
+            {/* Connect wallet button - Centered */}
+            <div className="flex justify-center mt-8 w-full">
+              {!walletConnected ? (
+                <button
+                  onClick={connectWalletHandler}
+                  disabled={isConnecting}
+                  className={`relative overflow-hidden w-full bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white font-bold py-4 px-6 rounded-full border-4 border-yellow-400 shadow-lg transition-all transform ${isConnecting ? 'scale-95 opacity-75 cursor-not-allowed' : 'hover:scale-105 hover:shadow-xl'} group`}
+                  style={{
+                    boxShadow: isConnecting 
+                      ? '0 5px 15px rgba(0,0,0,0.3)' 
+                      : '0 10px 25px rgba(0,0,0,0.3), 0 0 30px rgba(239, 68, 68, 0.3)'
+                  }}
+                  onMouseDown={() => {
+                    if (!isConnecting) {
+                      // Pull the lever when clicking connect
+                      const leverElements = document.querySelectorAll('.slot-lever');
+                      leverElements.forEach(el => {
+                        (el as HTMLElement).style.transform = 'translateY(50px)';
+                      });
+                      
+                      // Return lever to original position after a delay
+                      setTimeout(() => {
+                        leverElements.forEach(el => {
+                          (el as HTMLElement).style.transform = 'translateY(0)';
+                        });
+                      }, 1000);
+                    }
+                  }}
+                >
+                  {/* Button shine effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 -skew-x-12 transform translate-x-full group-hover:translate-x-[-200%] transition-transform duration-1000"></div>
+                  
+                  <span className="relative z-10 text-xl">
+                    {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                  </span>
+                  
+                  {/* Pulsing glow when not connecting */}
+                  {!isConnecting && (
+                    <div className="absolute inset-0 rounded-full bg-red-400 opacity-20 animate-ping"></div>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={enterCasino}
+                  className="relative overflow-hidden w-full bg-gradient-to-b from-green-500 to-green-700 hover:from-green-400 hover:to-green-600 text-white font-bold py-4 px-6 rounded-full border-4 border-yellow-400 shadow-lg transition-all transform hover:scale-105 hover:shadow-xl group"
+                  style={{
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.3), 0 0 30px rgba(34, 197, 94, 0.3)'
+                  }}
+                  onMouseDown={() => {
+                    // Pull the lever when clicking enter
                     const leverElements = document.querySelectorAll('.slot-lever');
                     leverElements.forEach(el => {
                       (el as HTMLElement).style.transform = 'translateY(50px)';
@@ -212,139 +373,77 @@ export default function Home() {
                         (el as HTMLElement).style.transform = 'translateY(0)';
                       });
                     }, 1000);
-                  }
-                }}
-              >
-                {/* Button shine effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 -skew-x-12 transform translate-x-full group-hover:translate-x-[-200%] transition-transform duration-1000"></div>
-                
-                <span className="relative z-10 text-xl">
-                  {connecting ? 'Connecting...' : '🎮 Connect Wallet 🎮'}
-                </span>
-                
-                {/* Pulsing glow when not connecting */}
-                {!connecting && (
-                  <div className="absolute inset-0 rounded-full bg-red-400 opacity-20 animate-ping"></div>
-                )}
-              </button>
-            ) : (
-              <div className="space-y-6">
-                <div className="bg-gradient-to-r from-green-600/30 to-green-800/30 backdrop-blur-sm rounded-lg p-4 mb-6 border border-green-500">
-                  <div className="flex items-center justify-center">
-                    <div className="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                    <p className="text-green-400 font-medium">Wallet Connected!</p>
-                  </div>
-                </div>
-                
-                {/* Enter Casino Button */}
-                <button
-                  onClick={enterCasino}
-                  className="relative overflow-hidden w-full bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white font-bold py-4 px-6 rounded-full border-4 border-yellow-400 shadow-lg transition-all transform hover:scale-105 hover:shadow-xl"
-                  style={{
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.3), 0 0 30px rgba(239, 68, 68, 0.3)'
-                  }}
-                  onMouseDown={() => {
-                    // Pull the lever when clicking enter
-                    const leverElements = document.querySelectorAll('.slot-lever');
-                    leverElements.forEach(el => {
-                      (el as HTMLElement).style.transform = 'translateY(50px)';
-                    });
                   }}
                 >
                   {/* Button shine effect */}
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 -skew-x-12 transform translate-x-full group-hover:translate-x-[-200%] transition-transform duration-1000"></div>
                   
                   <span className="relative z-10 text-xl">
-                    🎰 Enter Casino 🎰
+                    Enter Casino
                   </span>
                   
                   {/* Pulsing glow */}
-                  <div className="absolute inset-0 rounded-full bg-red-400 opacity-20 animate-ping"></div>
+                  <div className="absolute inset-0 rounded-full bg-green-400 opacity-20 animate-ping"></div>
                 </button>
-              </div>
-            )}
+              )}
             </div>
           </div>
         </div>
-        
-        {/* Disclaimer Modal */}
-        <AnimatePresence>
-          {showDisclaimerModal && (
+      </div>
+      
+      {/* Disclaimer Modal */}
+      <AnimatePresence>
+        {showDisclaimerModal && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
             <motion.div 
-              className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              className="bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 overflow-hidden max-w-lg w-full"
+              style={{
+                boxShadow: '0 0 0 4px #1a1a1a, 0 0 0 8px #d4af37, 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(212, 175, 55, 0.3)',
+                width: '500px',
+                minHeight: '400px'
+              }}
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
             >
-              <motion.div 
-                className="bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 overflow-hidden max-w-lg w-full"
-                style={{
-                  boxShadow: '0 0 0 4px #1a1a1a, 0 0 0 8px #d4af37, 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(212, 175, 55, 0.3)',
-                  minHeight: '400px'
-                }}
-                initial={{ scale: 0.9, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.9, y: 20 }}
-              >
-                <div className="bg-black rounded-lg p-4 mb-2 border-4 border-red-600 mx-4 mt-4">
+              <div className="p-6">
+                <div className="bg-black rounded-lg p-4 mb-6 border-4 border-red-600">
                   <div className="text-center">
-                    <div className="text-xl font-bold text-red-500">DISCLAIMER</div>
+                    <div className="text-2xl font-bold text-red-500">DISCLAIMER</div>
+                    <div className="text-sm text-yellow-400">PLEASE READ CAREFULLY</div>
                   </div>
                 </div>
                 
-                <div className="p-6">
-                  <p className="text-white text-sm mb-6">This is a blockchain gambling application. You must be of legal age to gamble in your jurisdiction. Gambling involves risk and should be considered entertainment only. Never gamble with funds you cannot afford to lose.</p>
-                  
-                  <div className="flex items-center mb-6">
-                    <input 
-                      type="checkbox" 
-                      id="disclaimer" 
-                      checked={disclaimerAccepted}
-                      onChange={() => setDisclaimerAccepted(!disclaimerAccepted)}
-                      className="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-700 rounded bg-gray-800"
-                    />
-                    <label htmlFor="disclaimer" className="ml-2 text-sm text-white cursor-pointer">
-                      I understand and accept the risks
-                    </label>
-                  </div>
-                  
-                  <div className="flex space-x-4">
-                    <button
-                      onClick={() => setShowDisclaimerModal(false)}
-                      className="relative overflow-hidden flex-1 bg-gradient-to-b from-gray-500 to-gray-700 hover:from-gray-400 hover:to-gray-600 text-white font-bold py-3 px-4 rounded-full border-4 border-gray-400 shadow-lg transition-all transform hover:scale-105"
-                    >
-                      Cancel
-                    </button>
-                    
-                    <button
-                      onClick={acceptDisclaimer}
-                      disabled={!disclaimerAccepted}
-                      className={`relative overflow-hidden flex-1 bg-gradient-to-b from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white font-bold py-3 px-4 rounded-full border-4 border-yellow-400 shadow-lg transition-all transform ${!disclaimerAccepted ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 hover:shadow-xl'}`}
-                    >
-                      Accept & Play
-                    </button>
-                  </div>
+                <div className="bg-black/70 rounded-lg p-4 mb-6 text-white">
+                  <p className="mb-4">By entering Citrea Casino, you acknowledge that:</p>
+                  <ul className="list-disc pl-5 space-y-2 mb-4">
+                    <li>You are at least 21 years of age</li>
+                    <li>Gambling involves risk and can be addictive</li>
+                    <li>You are responsible for any taxes on winnings</li>
+                    <li>All transactions are final and non-refundable</li>
+                  </ul>
+                  <p>Please gamble responsibly and only bet what you can afford to lose.</p>
                 </div>
-              </motion.div>
+                
+                <div className="flex space-x-4">
+                  <button 
+                    onClick={() => setShowDisclaimerModal(false)}
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 px-4 rounded-lg transition-colors"
+                  >
+                    Decline
+                  </button>
+                  <button 
+                    onClick={acceptDisclaimer}
+                    className="flex-1 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-400 hover:to-red-600 text-white py-3 px-4 rounded-lg transition-colors"
+                  >
+                    I Accept
+                  </button>
+                </div>
+              </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-        
-        {/* Error Message */}
-        {error && (
-          <div className="bg-gradient-to-r from-red-600/30 to-red-700/30 backdrop-blur-sm rounded-xl p-4 border border-red-500 mb-6">
-            <p className="text-red-400 font-medium text-center">{error}</p>
           </div>
         )}
-        
-        {/* Custom styles for animations */}
-        <style jsx>{`
-          /* Custom gradient for radial backgrounds */
-          .bg-gradient-radial {
-            background: radial-gradient(circle, var(--tw-gradient-stops));
-          }
-        `}</style>
-      </div>
+      </AnimatePresence>
     </div>
   );
 }

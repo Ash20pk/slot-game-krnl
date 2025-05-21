@@ -2,7 +2,8 @@
 
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { playSound, preloadSounds } from '../../utils/sounds';
 
 // Dynamically import the SlotMachine component with no SSR to avoid hydration issues
 const SlotMachineWithNoSSR = dynamic(
@@ -13,8 +14,11 @@ const SlotMachineWithNoSSR = dynamic(
 export default function SlotMachinePage() {
   const router = useRouter();
   
-  // Check if wallet is connected when component mounts
   useEffect(() => {
+    // Preload sounds
+    preloadSounds();
+    
+    // Check if wallet is connected when component mounts
     // This is a simple check to see if the user came from the home page
     // In a production app, you might want to use a more robust state management solution
     if (typeof window !== 'undefined' && window.ethereum) {
@@ -80,51 +84,16 @@ export default function SlotMachinePage() {
       </div>
       
       {/* Content wrapper */}
-      <div className="relative z-10 w-full max-w-6xl mx-auto p-4">     
+      <div className="relative z-10 w-full max-w-6xl mx-auto p-4 h-screen flex flex-col items-center justify-center">     
         
         {/* Main Content */}
-        <main>
+        <main className="w-full flex flex-col items-center justify-center">
           
           {/* Slot Machine */}
-          <div className="mb-8">
+          <div className="mb-8 flex justify-center">
             <SlotMachineWithNoSSR />
           </div>
-          
-          {/* Game Info */}
-          <div className="bg-gradient-to-b from-yellow-600 to-yellow-800 rounded-3xl shadow-2xl border-8 border-yellow-400 p-6 mb-6 max-w-2xl mx-auto"
-            style={{
-              boxShadow: '0 0 0 4px #1a1a1a, 0 0 0 8px #d4af37, 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(212, 175, 55, 0.3)'
-            }}>
-            <h3 className="text-2xl font-bold text-white mb-4 text-center">🎮 How to Play 🎮</h3>
-            <div className="space-y-3 text-white">
-              <div className="flex items-center bg-black/30 p-3 rounded-lg">
-                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center mr-3 text-white font-bold">1</div>
-                <p>Connect your wallet and ensure you have ETH staked</p>
-              </div>
-              <div className="flex items-center bg-black/30 p-3 rounded-lg">
-                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center mr-3 text-white font-bold">2</div>
-                <p>Set your bet amount using the controls</p>
-              </div>
-              <div className="flex items-center bg-black/30 p-3 rounded-lg">
-                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center mr-3 text-white font-bold">3</div>
-                <p>Pull the lever or click the Spin button to play</p>
-              </div>
-              <div className="flex items-center bg-black/30 p-3 rounded-lg">
-                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center mr-3 text-white font-bold">4</div>
-                <p>Match symbols to win - 777 is the jackpot!</p>
-              </div>
-            </div>
-          </div>
         </main>
-        
-        {/* Footer */}
-        <footer className="mt-8 text-center">
-          <div className="bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl p-4 border-2 border-yellow-600 max-w-2xl mx-auto">
-            <div className="text-yellow-400 font-bold text-lg mb-2">CITREA CASINO</div>
-            <p className="text-gray-300">© 2025 Citrea Casino. All rights reserved.</p>
-            <p className="mt-2 text-gray-400">🎲 Play Responsibly • 21+ Only • Ethereum Blockchain Gambling 🎲</p>
-          </div>
-        </footer>
         
       </div>
       
