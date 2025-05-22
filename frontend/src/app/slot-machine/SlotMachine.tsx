@@ -6,7 +6,7 @@ import { ethers } from 'krnl-sdk';
 import { useRouter } from 'next/navigation';
 import { executeKrnl, callContractProtectedFunction } from '../../components/kernels/onchain/1557';
 import { abi as contractAbi, CONTRACT_ADDRESS, KERNEL_ID } from '../../components/kernels/onchain/1557/config';
-import { playSound, preloadSounds } from '../../utils/sounds';
+import { playSound, preloadSounds, stopAllSounds, stopSound } from '../../utils/sounds';
 
 // Slot symbols with emojis for visual appeal
 const SYMBOLS = [
@@ -19,7 +19,8 @@ const SYMBOLS = [
   { id: 6, symbol: '💎', name: 'Diamond' },
   { id: 7, symbol: '7️⃣', name: 'Seven' },
   { id: 8, symbol: '🍀', name: 'Clover' },
-  { id: 9, symbol: '👑', name: 'Crown' }
+  { id: 9, symbol: '👑', name: 'Crown' },
+  { id: 10, symbol: '💣', name: 'Bomb' } // Added bomb symbol for error state
 ];
 
 // Payout table - matches the contract's calculateWinnings function
@@ -178,12 +179,16 @@ export default function EnhancedSlotMachine() {
       if (parseFloat(betAmount) <= 0) {
         // Play error sound
         playSound('error');
-        setError('Bet amount must be greater than 0');
+        const errorMsg = 'Bet amount must be greater than 0';
+        setError(errorMsg);
+        showErrorToast(errorMsg);
         setSpinning(false);
         setLoading(false);
         if (machineRef.current) {
           machineRef.current.classList.remove('animate-spin-shake');
         }
+        // Stop reels at bomb symbol
+        stopReelsAtBomb();
         return;
       }
       
@@ -191,26 +196,54 @@ export default function EnhancedSlotMachine() {
       if (parseFloat(betAmount) > parseFloat(userStake)) {
         // Play error sound
         playSound('error');
-        setError('Insufficient balance for this bet');
+        const errorMsg = 'Insufficient balance for this bet';
+        setError(errorMsg);
+        showErrorToast(errorMsg);
         setSpinning(false);
         setLoading(false);
         if (machineRef.current) {
           machineRef.current.classList.remove('animate-spin-shake');
         }
+        // Stop reels at bomb symbol
+        stopReelsAtBomb();
         return;
       }
       
       // Convert bet amount to Wei
       const betAmountWei = ethers.parseEther(betAmount);
       
-      // Execute KRNL to get randomness
-      const krnlResponse = await executeKrnl(connectedAddress, KERNEL_ID, betAmountWei);
-      
       // Define the type for event data
       interface BetEventData {
         player: string;
         betAmount: string;
         score: string;
+      }
+
+      // Execute KRNL to get randomness
+      let krnlResponse;
+      try {
+        krnlResponse = await executeKrnl(connectedAddress, KERNEL_ID, betAmountWei);
+      } catch (txError: any) {
+        // Check if the error is due to user denying the transaction
+        if (txError.code === 4001 || // MetaMask user denied transaction
+            txError.message?.includes('user rejected') || 
+            txError.message?.includes('User denied') ||
+            txError.message?.includes('user cancelled')) {
+          console.error('Transaction was denied by the user:', txError);
+          const errorMsg = 'Transaction was denied by the user';
+          setError(errorMsg);
+          showErrorToast(errorMsg);
+          setSpinning(false);
+          setLoading(false);
+          if (machineRef.current) {
+            machineRef.current.classList.remove('animate-spin-shake');
+          }
+          // Stop reels at bomb symbol
+          stopReelsAtBomb();
+          return;
+        }
+        // Re-throw other errors to be caught by the outer catch block
+        throw txError;
       }
       
       // Set up the event listener before sending the transaction
@@ -243,10 +276,33 @@ export default function EnhancedSlotMachine() {
       });
       
       // Call the bet function on the contract
-      const tx = await callContractProtectedFunction(krnlResponse, signer, betAmountWei);
-      
-      // Set transaction hash for reference
-      setTransactionHash(tx.hash);
+      try {
+        const tx = await callContractProtectedFunction(krnlResponse, signer, betAmountWei);
+        
+        // Set transaction hash for reference
+        setTransactionHash(tx.hash);
+      } catch (txError: any) {
+        // Check if the error is due to user denying the transaction
+        if (txError.code === 4001 || // MetaMask user denied transaction
+            txError.message?.includes('user rejected') || 
+            txError.message?.includes('User denied') ||
+            txError.message?.includes('user cancelled')) {
+          console.error('Transaction was denied by the user:', txError);
+          const errorMsg = 'Transaction was denied by the user';
+          setError(errorMsg);
+          showErrorToast(errorMsg);
+          setSpinning(false);
+          setLoading(false);
+          if (machineRef.current) {
+            machineRef.current.classList.remove('animate-spin-shake');
+          }
+          // Stop reels at bomb symbol
+          stopReelsAtBomb();
+          return;
+        }
+        // Re-throw other errors to be caught by the outer catch block
+        throw txError;
+      }
       
       try {
         // Wait for the bet event to be received
@@ -260,23 +316,31 @@ export default function EnhancedSlotMachine() {
         getUserBets();
       } catch (eventError) {
         console.error('Error receiving bet event:', eventError);
-        setError('Failed to receive bet result. Please check transaction status.');
+        const errorMsg = 'Failed to receive bet result. Please check transaction status.';
+        setError(errorMsg);
+        showErrorToast(errorMsg);
         setSpinning(false);
         setLoading(false);
         if (machineRef.current) {
           machineRef.current.classList.remove('animate-spin-shake');
         }
+        // Stop reels at bomb symbol
+        stopReelsAtBomb();
       }
     } catch (error) {
       console.error('Error placing bet:', error);
       // Play error sound
       playSound('error');
-      setError('Failed to place bet. Please try again.');
+      const errorMsg = 'Failed to place bet. Please try again.';
+      setError(errorMsg);
+      showErrorToast(errorMsg);
       setSpinning(false);
       setLoading(false);
       if (machineRef.current) {
         machineRef.current.classList.remove('animate-spin-shake');
       }
+      // Stop reels at bomb symbol
+      stopReelsAtBomb();
     }
   };
 
@@ -309,9 +373,35 @@ export default function EnhancedSlotMachine() {
   const [reel2SlowingDown, setReel2SlowingDown] = useState(false);
   const [reel3SlowingDown, setReel3SlowingDown] = useState(false);
 
+  // Function to stop reels at bomb symbol for error states
+  const stopReelsAtBomb = () => {
+    // The bomb symbol is at index 10 in the SYMBOLS array
+    const bombSymbolIndex = 10;
+    
+    // Stop all spinning animations
+    setReel1Spinning(false);
+    setReel2Spinning(false);
+    setReel3Spinning(false);
+    setReel1SlowingDown(false);
+    setReel2SlowingDown(false);
+    setReel3SlowingDown(false);
+    
+    // Stop all playing sounds
+    stopAllSounds();
+    
+    // Play error sound
+    playSound('error');
+    
+    // Set all reels to show the bomb symbol
+    setReels([bombSymbolIndex, bombSymbolIndex, bombSymbolIndex]);
+  };
+
   // Animate the reels based on the score
   const animateReels = (scoreString: string) => {
     try {
+      // Stop the reel spinning sound once we have the random number
+      stopSound('reelSpin');
+      
       // Extract individual digits
       const digit1 = parseInt(scoreString[0]);
       const digit2 = parseInt(scoreString[1]);
@@ -397,6 +487,9 @@ export default function EnhancedSlotMachine() {
       }, 3500);
     } catch (error) {
       console.error('Error animating reels:', error);
+      const errorMsg = 'Error animating reels. Please try again.';
+      setError(errorMsg);
+      showErrorToast(errorMsg);
       setSpinning(false);
       setLoading(false);
       setReel1Spinning(false);
@@ -405,6 +498,8 @@ export default function EnhancedSlotMachine() {
       setReel1SlowingDown(false);
       setReel2SlowingDown(false);
       setReel3SlowingDown(false);
+      // Stop reels at bomb symbol
+      stopReelsAtBomb();
     }
   };
 
@@ -492,6 +587,10 @@ export default function EnhancedSlotMachine() {
       multiplier = PAYOUTS.one_cherry;
       winType = 'CHERRY!';
     }
+    else {
+      // Play error sound
+      playSound('error');
+    }
     
     if (multiplier > 0) {
       const win = parseFloat(betAmount) * multiplier;
@@ -523,7 +622,7 @@ export default function EnhancedSlotMachine() {
     }
   };
   
-  // Toast notification for wins
+  // Toast notification for wins and errors
   const [toasts, setToasts] = useState<{message: string, type: string, id: number}[]>([]);
   
   const showWinToast = (winType: string, amount: string) => {
@@ -539,6 +638,22 @@ export default function EnhancedSlotMachine() {
     setTimeout(() => {
       setToasts(prev => prev.filter(toast => toast.id !== newToast.id));
     }, 5000);
+  };
+
+  // Show error toast notification
+  const showErrorToast = (errorMessage: string) => {
+    const newToast = {
+      message: `Error: ${errorMessage}`,
+      type: 'error',
+      id: Date.now()
+    };
+    
+    setToasts(prev => [...prev, newToast]);
+    
+    // Auto-remove toast after 7 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== newToast.id));
+    }, 7000);
   };
 
   // Handle withdraw
@@ -587,34 +702,8 @@ export default function EnhancedSlotMachine() {
     setBetAmount(formattedValue);
   };
 
-  // Handle withdraw amount change with validation
-  const handleWithdrawAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const numValue = parseFloat(value);
-    
-    // Validate input
-    if (isNaN(numValue) || numValue < 0) {
-      return;
-    }
-    
-    // Ensure withdraw amount doesn't exceed user stake
-    if (numValue > parseFloat(userStake)) {
-      setWithdrawAmount(userStake);
-      return;
-    }
-    
-    // Limit to 4 decimal places
-    const formattedValue = numValue.toFixed(4);
-    setWithdrawAmount(formattedValue);
-  };
-
-  // Go back to home
-  const goToHome = () => {
-    router.push('/');
-  };
-
   return (
-    <div className="flex flex-col items-center justify-center">
+    <div className="flex flex-col items-center mt-8 justify-center">
       {/* Main Slot Machine */}
       <div className="relative flex items-center">
         {/* Side Lever */}
@@ -835,7 +924,13 @@ export default function EnhancedSlotMachine() {
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 100 }}
-              className={`p-4 rounded-lg shadow-lg max-w-sm ${toast.type === 'jackpot' ? 'bg-gradient-to-r from-yellow-400 to-red-500 border-2 border-yellow-300' : 'bg-gradient-to-r from-green-400 to-blue-500 border-2 border-green-300'}`}
+              className={`p-4 rounded-lg shadow-lg max-w-sm ${
+                toast.type === 'jackpot' 
+                  ? 'bg-gradient-to-r from-yellow-400 to-red-500 border-2 border-yellow-300' 
+                  : toast.type === 'error'
+                    ? 'bg-gradient-to-r from-red-600 to-red-800 border-2 border-red-400'
+                    : 'bg-gradient-to-r from-green-400 to-blue-500 border-2 border-green-300'
+              }`}
             >
               <div className="flex justify-between">
                 <div className="text-white font-bold">{toast.message}</div>
