@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { executeKrnl, callContractProtectedFunction } from '../../components/kernels/onchain/1557';
 import { abi as contractAbi, CONTRACT_ADDRESS, KERNEL_ID } from '../../components/kernels/onchain/1557/config';
 import { playSound, preloadSounds, stopAllSounds, stopSound } from '../../utils/sounds';
+import Image from 'next/image';
 
 // Slot symbols with emojis for visual appeal
 const SYMBOLS = [
@@ -742,7 +743,9 @@ export default function EnhancedSlotMachine() {
         <div className="bg-black rounded-lg p-4 mb-6 border-4 border-red-600">
           <div className="text-center">
             <div className="text-2xl font-bold text-red-500">CITREA SLOTS</div>
-            <div className="text-sm text-yellow-400">POWERED BY KRNL</div>
+            <div className="text-sm text-blue-400">POWERED BY <Image src="/logo.svg" alt="KRNL Logo" width={22} height={22} className="inline-block" />KRNL</div>
+            
+
           </div>
         </div>
 
