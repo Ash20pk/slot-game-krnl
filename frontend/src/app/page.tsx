@@ -112,16 +112,16 @@ export default function Home() {
   const enterCasino = () => {
     if (walletConnected) {
       if (disclaimerAccepted) {
-        // Play lever pull and reel spin sounds together
+        // Play lever pull sound
         playSound('leverPull');
-        playSound('reelSpin');
         
         // Pull the lever animation
         setLeverPulled(true);
         
         // Delay navigation to show the lever animation
         setTimeout(() => {
-          router.push('/slot-machine');
+          // Navigate to cashier page instead of directly to slot machine
+          router.push('/cashier');
         }, 1000);
       } else {
         // Play button click sound
@@ -153,14 +153,10 @@ export default function Home() {
     // Play lever pull sound
     playSound('leverPull');
     
-    // Play reel spin sound after a short delay
-    setTimeout(() => {
-      playSound('reelSpin');
-    }, 300);
-    
     // Delay navigation to show the lever animation
     setTimeout(() => {
-      router.push('/slot-machine');
+      // Navigate to cashier page instead of directly to slot machine
+      router.push('/cashier');
     }, 1000);
   };
 

@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { playSound, preloadSounds } from '../../utils/sounds';
+import { ethers } from 'krnl-sdk';
+import { CONTRACT_ADDRESS, abi as contractAbi } from '../../components/kernels/onchain/1557/config';
 
 // Dynamically import the SlotMachine component with no SSR to avoid hydration issues
 const SlotMachineWithNoSSR = dynamic(
@@ -13,30 +15,59 @@ const SlotMachineWithNoSSR = dynamic(
 
 export default function SlotMachinePage() {
   const router = useRouter();
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
   
   useEffect(() => {
     // Preload sounds
     preloadSounds();
     
     // Check if wallet is connected when component mounts
-    // This is a simple check to see if the user came from the home page
-    // In a production app, you might want to use a more robust state management solution
-    if (typeof window !== 'undefined' && window.ethereum) {
-      window.ethereum.request({ method: 'eth_accounts' })
-        .then((accounts: string[]) => {
+    const checkWalletAndBalance = async () => {
+      if (typeof window !== 'undefined' && window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          
           if (accounts.length === 0) {
             // No accounts connected, redirect to home page
             router.push('/');
+            return;
           }
-        })
-        .catch((error: any) => {
-          console.error('Error checking wallet connection:', error);
+          
+          // Check user's balance
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          const address = await signer.getAddress();
+          const contract = new ethers.Contract(CONTRACT_ADDRESS, contractAbi, signer);
+          
+          // Get user stake
+          const stake = await contract.getStake(address);
+          const stakeAmount = ethers.formatEther(stake);
+          
+          // If balance is zero or negative, redirect to cashier
+          if (parseFloat(stakeAmount) <= 0) {
+            // Play error sound
+            playSound('error');
+            
+            // Show toast and redirect after a delay
+            setToastMessage('Insufficient balance. Please deposit funds to play.');
+            setShowToast(true);
+            
+            setTimeout(() => {
+              router.push('/cashier');
+            }, 3000);
+          }
+        } catch (error) {
+          console.error('Error checking wallet or balance:', error);
           router.push('/');
-        });
-    } else {
-      // No ethereum object, redirect to home page
-      router.push('/');
-    }
+        }
+      } else {
+        // No ethereum object, redirect to home page
+        router.push('/');
+      }
+    };
+    
+    checkWalletAndBalance();
   }, [router]);
 
   return (
@@ -97,6 +128,16 @@ export default function SlotMachinePage() {
         
       </div>
       
+      {/* Toast notification */}
+      {showToast && (
+        <div className="fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center animate-fade-in">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+          {toastMessage}
+        </div>
+      )}
+      
       {/* Custom styles for animations */}
       <style jsx>{`
         /* Custom gradient for radial backgrounds */
@@ -107,6 +148,15 @@ export default function SlotMachinePage() {
         @keyframes float {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-20px) rotate(5deg); }
+        }
+        
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out forwards;
         }
       `}</style>
     </div>

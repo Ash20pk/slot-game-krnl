@@ -263,6 +263,15 @@ export default function Cashier() {
       return;
     }
     
+    // Check if user has a positive balance
+    if (parseFloat(userStake) <= 0) {
+      // Play error sound
+      playSound('error');
+      // Show toast notification
+      showToastNotification('Insufficient balance. Please deposit funds to play.', 'error');
+      return;
+    }
+    
     // Play lever pull sound
     playSound('leverPull');
     
